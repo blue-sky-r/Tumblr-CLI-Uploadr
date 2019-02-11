@@ -16,7 +16,12 @@ import pytumblr
 
 # debug (verbosity) level
 #
-DBG = 10
+DBG = 0
+
+# Suppress warnings: InsecurePlatformWarning, SNIMissingWarning
+# https://stackoverflow.com/questions/29099404/ssl-insecureplatform-error-when-using-requests-package
+import requests.packages.urllib3
+requests.packages.urllib3.disable_warnings()
 
 def die(msg, exitcode=1):
     """ print msg and die woth exitcode """
@@ -32,7 +37,7 @@ def usage(required=4):
     die(__usage__)
 
 def cfg_filename(ext='.json'):
-    """ derive cfg filename """
+    """ derive cfg filename from argv[0] and add extension ext """
     basename = os.path.basename(sys.argv[0])
     # remove '.py' extension
     if basename.endswith('.py'):
@@ -102,8 +107,6 @@ if __name__ == '__main__':
     debug_json(1, "client.info()", info)
     die_if_error(info)
 
-    debug_json(1, "client.posts()", client.posts(cfg["blog_name"]))
-
     # DELETE id
     #
     if action in ['del', 'delete', 'rm', 'remove']:
@@ -112,25 +115,29 @@ if __name__ == '__main__':
         debug_json(1, 'delete result', result)
         die_if_error(result)
 
-    # FIND-TAG par
+    # FIND-TAG tag
     #
     if action in ['find', 'find-tag']:
         result = client.posts(cfg["blog_name"], tag=par)
         debug_json(1, 'find tag', result)
         die_if_error(result)
-        for post in result["posts"]:
-            print post["id"],
-        print
+        if result["posts"]:
+            print "FOUND:",
+            for post in result["posts"]:
+                print post["id"],
+            print
+        else:
+            print "NOT FOUND"
 
-    # PHOTO
+    # PHOTO file caption tags
     #
     if action in ["photo", "image", "picture"]:
         usage(required=4)
         photo, caption, tags = sys.argv[2], sys.argv[3], sys.argv[4]
         # basename
         basenamephoto = os.path.basename(photo)
-        # default timestap is now
-        gmtstr = datetime.datetime.now().strptime('%Y-%m-%d %H:%M:%S GMT')
+        # default timestap is UTC now
+        gmtstr = datetime.datetime.utcnow().isoformat(' ')
         # comma separated -> list, trim tags and skip empty tags
         tags = [ t.strip() for t in tags.split(',') if len(t.strip()) ]
         # optional add filename
@@ -139,58 +146,37 @@ if __name__ == '__main__':
         # optional add timestamp
         if cfg["auto_tag"]["timestamp"]:
             # FUJI20170721T134312.JPG
-            m = re.match(r'[A-Za-z]+(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})\.[A-Za-z]+', photo)
+            m = re.match(r'[A-Za-z]+(\d\d\d\d)(\d\d)(\d\d)T(\d\d)(\d\d)(\d\d)\.[A-Za-z]+', basenamephoto)
             if m:
                 y,m,d, hh,mm,ss = m.group(1), m.group(2), m.group(3), m.group(4), m.group(5), m.group(6)
                 # "2019-01-10 22:26:25 GMT"
-                gmtstr = "%s-%s-%s %s:%s:%s GMT" % (y,m,d hh,mm,ss)
-                gmttag = "%s%s%sT%s%s%s" % (y, m, d hh, mm, ss)
+                gmtstr = "%s-%s-%s %s:%s:%s" % (y,m,d, hh,mm,ss)
+                gmttag = "%s-%s-%sT%s:%s:%s" % (y, m, d, hh,mm,ss)
             else:
                 # from file creation
-                ts = os.path.getctime(photo)
+                photomtime = os.path.getmtime(photo)
                 # "2019-01-10 22:26:25 GMT"
-                gmtstr = datetime.datetime.fromtimestamp(ts).strptime('%Y-%m-%d %H:%M:%S GMT')
-                gmttag = datetime.datetime.fromtimestamp(ts).strptime('%Y%m%dT%H%M%S')
+                mtime = datetime.datetime.fromtimestamp(int(photomtime))
+                gmtstr = mtime.isoformat(' ')
+                gmttag = mtime.isoformat()
             tags.append(gmttag)
         # post photo
         result = client.create_photo(cfg["blog_name"], state="published", format="markdown",
                                     tags=tags, data=photo,
-                                    caption=caption, date=gmtstr)
+                                    caption=caption, date=gmtstr+' GMT')
         die_if_error(result)
         # id
         id = result["id"]
         # get available sizes
-        result = client.posts(cfg["blog_name"], id=id)
-        die_if_error(result)
+        url = client.posts(cfg["blog_name"], id=id)
+        die_if_error(url)
         #
+        for key in cfg["result"].split('/'):
+            # if key is plural take the first item from list
+            url = url[key][0] if key.endswith('s') else url[key]
+        print "ID:", id
+        print "URL:", url
 
     # VIDEO
     #
 
-    sys.exit(1)
-
-    debug_json(1, "client.blog_info()", client.blog_info(cfg["blog_name"]))
-    # posts
-    debug_json(1, "client.posts()", client.posts(cfg["blog_name"]))
-    sys.exit(1)
-
-    # post image
-    img = 'FUJI20170721T134312.JPG'
-    loc = '/home/robert/work/www/tumblr/' + img
-    txt = """### Test CLI Uploadr
-    
-    hyperlink http://www.abclinuxu.cz
-    
-    list:
-    
-    * line one
-    * line 2
-    
-    """
-    r = client.create_photo(blogName, state="published", tags=["test", "ignore", "cli", "uploadr", img], data=loc,
-                            format="markdown", caption=txt, date="2019-01-10 22:26:25 GMT")
-    print_json("client.create_photo()", r)
-    id = r["id"]
-
-    # posts
-    print_json("client.posts()", client.posts(blogName, type="photo", id=id))
