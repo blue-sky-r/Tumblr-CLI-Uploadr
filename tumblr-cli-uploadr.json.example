@@ -1,0 +1,19 @@
+{
+    "consumer": {
+        "key":          "<your-consumer-key>",
+        "secret":       "<your-consumer-secret>"
+    },
+    "oauth": {
+        "token":        "<your-oauth-token>",
+        "token_secret": "<your-oauth-token-secret>"
+    },
+    "blog_name":        "<your-blog-name>",
+    "options": {
+        "auto_tag_filename":    true,
+        "auto_tag_timestamp":   true,
+        "photo_url":            "posts/photos/original_size/url",
+        "video_url":            "posts/video_url",
+        "photo_wait":           5,
+        "video_wait":           10
+    }
+}
