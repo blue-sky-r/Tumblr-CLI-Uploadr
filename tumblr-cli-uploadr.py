@@ -1,8 +1,14 @@
 #!/usr/bin/python
 
+__VERSION__ = '2019.05.15'
+
+__ABOUT__   = '= tubmlr - command line uploader = ver %s = (c) 2019 by Robert =' % __VERSION__
+
 import os, sys
 
 __usage__ = """
+%(about)s
+
 usage: %(exe)s action file "caption" "tag1,tag2"
 
 action  ... photo, video, delete, find-tag, find-id
@@ -21,7 +27,7 @@ example:
 %(exe)s photo file caption tags ... uploads photo file with caption and tags and print post id and url
 %(exe)s video file caption tags ... uploads video file with caption and tags and print post id and url
 
-""" % { 'exe': os.path.basename(sys.argv[0]), 'cfg': os.path.basename(sys.argv[0])[:-3] + '.json' }
+""" % { 'about': __ABOUT__, 'exe': os.path.basename(sys.argv[0]), 'cfg': os.path.basename(sys.argv[0])[:-3] + '.json' }
 
 # debug (verbosity) level
 #
@@ -93,8 +99,8 @@ class TumblrSimple:
 
     def response_is_ok(self):
         """ check if response does not contain errors """
-        err = self.response.get("meta")
-        return False if err else True
+        meta = self.response.get("meta")
+        return False if meta else True
 
     def info(self):
         """ get info """
@@ -123,6 +129,16 @@ class TumblrSimple:
     def get_id_from_response(self):
         """ get is from response """
         return self.response.get("id")
+
+    def get_blogs_from_response(self):
+        """ get list of blogs from info response """
+        user = self.response.get("user")
+        return user.get("blogs", []) if user else []
+
+    def get_post_format_from_response(self):
+        """ get default post format (markdown, html) """
+        user = self.response.get("user")
+        return user.get("default_post_format", '?') if user else '?'
 
     def trim_tags(self, tags):
         """ trim tags and covert from comma separated values to list """
@@ -242,6 +258,10 @@ def debug_json(level, action, jsn):
     print
 
 
+# =========
+#   MAIN
+# =========
+#
 if __name__ == '__main__':
 
     # parameters (min 2 required)
@@ -266,6 +286,12 @@ if __name__ == '__main__':
     #
     if not tumblr.info():
         die(tumblr.last_error())
+
+    #
+    blogs = tumblr.get_blogs_from_response()
+    print "BLOGS:",blogs
+    format = tumblr.get_post_format_from_response()
+    print "FORMAT:",format
 
     # DELETE id
     #
