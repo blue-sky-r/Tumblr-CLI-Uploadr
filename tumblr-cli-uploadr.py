@@ -1,8 +1,8 @@
 #!/usr/bin/python
 
-__VERSION__ = '2019.05.29'
+__VERSION__ = '2019.05.30'
 
-__ABOUT__   = '= tubmlr - command line uploader = ver %s = (c) 2019 by Robert =' % __VERSION__
+__ABOUT__   = '= tubmlr - command line uploader = (c) 2019 by Robert = version %s =' % __VERSION__
 
 import os, sys
 
@@ -20,10 +20,10 @@ for configurable options check config file: %(cfg)s
  
 example:
 %(exe)s find-id id              ... find post id and print full json
-%(exe)s find-id all             ... find all posts and print full json
-%(exe)s find-tag tag            ... find post(s) with tag tag and print only id(s)
-%(exe)s find-tag all            ... find all posts with tag tag and print only ids
-%(exe)s delete id               ... delete post id
+%(exe)s find-tag tag            ... find post(s)   tagged with tag tag and print only id(s)
+%(exe)s find-tag all            ... find all posts tagged with tag tag and print only ids
+%(exe)s delete-id id            ... delete post id
+%(exe)s delete-tagged tag       ... delete all post tagged with tag tag
 %(exe)s photo file caption tags ... uploads photo file with caption and tags and print post id and url
 %(exe)s video file caption tags ... uploads video file with caption and tags and print post id and url
 
@@ -31,9 +31,7 @@ example:
 
 # debug (verbosity) level
 #
-DBG = 10
-
-import json
+DBG = 0
 
 import tumblrsimple
 
@@ -95,10 +93,20 @@ if __name__ == '__main__':
 
     # DELETE id
     #
-    if action in ['del', 'delete', 'rm', 'remove']:
+    if action in ['del-id', 'delete-id', 'rm-id', 'remove-id']:
         id = None if par in ['*', 'all', '-'] else par
         if not tumblr.delete_post_rq(id=id):
             die(tumblr.last_error())
+
+    # DELETE tagged
+    #
+    if action in ['del-tagged', 'delete-tagged', 'rm-tagged', 'remove-tagged']:
+        ids = tumblr.find_tag_get_ids(tag=par)
+        if not ids:
+            die(tumblr.last_error())
+        for id in ids:
+            if not tumblr.delete_post_rq(id=id):
+                die(tumblr.last_error())
 
     # FIND-TAG tag
     #
