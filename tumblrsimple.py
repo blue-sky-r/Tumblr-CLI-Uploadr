@@ -1,17 +1,21 @@
 #!/usr/bin/python
 
 """
-TumblrSimple class for simplified tumblr operations over pytumblr API
+TumblrSimple class for simplified tumblr operations over tumblr API
 
-https://www.tumblr.com/docs/en/api/v2
+tumbkr API:     https://www.tumblr.com/docs/en/api/v2
+web console:    https://api.tumblr.com/console/calls/blog/posts
+tumblr apps:    https://www.tumblr.com/oauth/apps
+pytumblr:       https://github.com/tumblr/pytumblr
 
 """
 
-__VERSION__ = '2019.05.15'
+__VERSION__ = '2019.05.30'
 
 import os, json
 import re, datetime, time
 import pytumblr
+
 
 class TumblrSimple:
     """ simple Tumblr operations """
@@ -72,7 +76,6 @@ class TumblrSimple:
         #            "Nice image, but we don't support that format. Try resaving it as a gif, jpg, or png."
         #        ]
         #    }
-
         """
         if self.response_is_ok():
             return
@@ -230,31 +233,34 @@ class TumblrSimple:
         id = self.get_id_from_response()
         # wait for server processing
         self.sleep(self.options.get("photo_wait", 5))
-        # find post by id
-        if not self.find_id_rq(id):
-            return None
+        # TODO: limit looping
+        while not self.find_id_rq(id):
+            self.sleep(self.options.get("photo_wait", 5))
+        # get photo url
         url = self.get_path_from_response(path=self.options["photo_url"])
         #
-        return { 'id': id, 'url': url }
+        return {
+            'id':   id,
+            'url':  url
+        }
 
     def upload_video_get_id_url(self, video, caption, tags):
         """ upload video with caption and tags and return id/url """
-        # upload
-        if not self.upload_video_rq(video, caption, tags):
+        # unique id (unix timestamp) to find uploaded post after server processing
+        uid = datetime.datetime.now().strftime('%s')
+        # upload with added uid tag
+        if not self.upload_video_rq(video, caption, "%s,%s" % (tags, uid)):
             return None
-        # this is just temporary/processing id
+        # this is just temporary/processing id returned from upload
         tid = self.get_id_from_response()
         # wait for server processing
-        #self.sleep(self.options.get("video_wait", 10))
-        self.sleep(2)
-        # sleep until temporary id is valid
+        self.sleep(self.options.get("video_wait", 10))
+        # sleep until temporary id is valid (server is processing video)
+        # TODO: limit looping
         while self.find_id_rq(tid):
-            #self.sleep(self.options.get("video_wait", 10))
-            self.sleep(2)
-        # TODO: find post by something better than filename as filename tag is optional
-        # find post by filename tag
-        tag = os.path.basename(video)
-        if not self.find_tag_rq(tag):
+            self.sleep(self.options.get("video_wait", 10))
+        # find post by uid
+        if not self.find_tag_rq(uid):
             return None
         return {
             'id':  self.get_ids_from_response()[0],
@@ -262,10 +268,10 @@ class TumblrSimple:
         }
 
     @classmethod
-    def debug_json(cls, level, action, jsn, stampfrm=' [ %Y-%m-%d %X ] >>>'):
+    def debug_json(cls, level, action, jsn, stampfrm='[ %Y-%m-%d %X ]'):
         """ debug output with pretty formatted json """
         if level > cls.verbosity: return
         stamp = datetime.datetime.now().strftime(stampfrm) if stampfrm else ''
-        print ">>>%s" % stamp, action,">>>"
+        print "%s" % stamp, '>>>', action, ">>>"
         print json.dumps(jsn, indent=4, sort_keys=True)
         print
