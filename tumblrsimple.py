@@ -192,6 +192,8 @@ class TumblrSimple:
             gmt = self.gmt_media(photo)
             tags.append(gmt)
             gmtstr = gmt.replace('T', ' ')
+        # rectify tags
+        tags = self.rectify_tags(tags)
         # post photo
         self.response = self.tumblr.create_photo(
                             self.blogname, state="published", format="markdown",
@@ -215,6 +217,8 @@ class TumblrSimple:
             gmt = self.gmt_media(video)
             tags.append(gmt)
             gmtstr = gmt.replace('T', ' ')
+        # rectify tags
+        tags = self.rectify_tags(tags)
         # post video
         self.response = self.tumblr.create_video(
                             self.blogname, state="published", format="markdown",
@@ -266,6 +270,21 @@ class TumblrSimple:
             'id':  self.get_ids_from_response()[0],
             'url': self.get_path_from_response(path=self.options["video_url"])
         }
+
+    def rectify_tags(self, tags, sep=',', trim=True, uniq=True, mapfnc=None, sortfnc=None):
+        """ rectify (trim, unique, map, sort) tags (list or string) """
+        # split string to list
+        ltags = sep.split(tags) if type(tags) in [str, unicode] else tags
+        if trim:
+            ltags = map(str.strip, ltags)
+        if uniq:
+            ltags = list(set(ltags))
+        if mapfnc:
+            ltags = map(mapfnc, ltags)
+        if sortfnc:
+            ltags = sortfnc(ltags)
+        # join list to string
+        return sep.join(tags)
 
     @classmethod
     def debug_json(cls, level, action, jsn, stampfrm='[ %Y-%m-%d %X ]'):
