@@ -31,7 +31,7 @@ example:
 
 # debug (verbosity) level
 #
-DBG = 10
+DBG = 0
 
 import tumblrsimple
 
