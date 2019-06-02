@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-__VERSION__ = '2019.05.30'
+__VERSION__ = '2019.05.31'
 
 __ABOUT__   = '= tubmlr - command line uploader = (c) 2019 by Robert = version %s =' % __VERSION__
 
@@ -20,8 +20,8 @@ for configurable options check config file: %(cfg)s
  
 example:
 %(exe)s find-id id              ... find post id and print full json
-%(exe)s find-tag tag            ... find post(s)   tagged with tag tag and print only id(s)
-%(exe)s find-tag all            ... find all posts tagged with tag tag and print only ids
+%(exe)s find-tag tag            ... find post(s)   tagged with tag tag and print only post id(s)
+%(exe)s find-tag all            ... find all posts (print only post id(s))
 %(exe)s delete-id id            ... delete post id
 %(exe)s delete-tagged tag       ... delete all post tagged with tag tag
 %(exe)s photo file caption tags ... uploads photo file with caption and tags and print post id and url
@@ -31,7 +31,7 @@ example:
 
 # debug (verbosity) level
 #
-DBG = 0
+DBG = 10
 
 import tumblrsimple
 
@@ -48,15 +48,6 @@ def usage(required=4):
         return
     # show usage help and die
     die(__usage__)
-
-def cfg_filename(ext='.json'):
-    """ derive cfg filename from argv[0] and add extension ext """
-    basename = os.path.basename(sys.argv[0])
-    # remove '.py' extension
-    if basename.endswith('.py'):
-        basename = basename[:-3]
-    # add extension
-    return basename + ext
 
 
 # =========
@@ -76,7 +67,7 @@ if __name__ == '__main__':
 
     # simple tumblr from cfg file
     #
-    cfgfile = cfg_filename()
+    cfgfile = tumblrsimple.TumblrSimple.cfg_filename(sys.argv[0])
     tumblr = tumblrsimple.TumblrSimple.read_cfg(cfgfile)
     #
     if not tumblr:
