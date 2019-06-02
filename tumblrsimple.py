@@ -10,7 +10,7 @@ pytumblr:       https://github.com/tumblr/pytumblr
 
 """
 
-__VERSION__ = '2019.05.30'
+__VERSION__ = '2019.05.31'
 
 import os, json
 import re, datetime, time
@@ -285,6 +285,16 @@ class TumblrSimple:
             ltags = sortfnc(ltags)
         # join list to string
         return sep.join(tags)
+
+    @classmethod
+    def cfg_filename(cls, exename, ext='.json'):
+        """ derive cfg filename from exename and add extension ext """
+        basename = os.path.basename(exename)
+        # remove '.py' extension
+        if basename.endswith('.py'):
+            basename = basename[:-3]
+        # add extension
+        return basename + ext
 
     @classmethod
     def debug_json(cls, level, action, jsn, stampfrm='[ %Y-%m-%d %X ]'):
