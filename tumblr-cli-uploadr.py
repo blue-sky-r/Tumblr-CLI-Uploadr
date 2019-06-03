@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-__VERSION__ = '2019.05.31'
+__VERSION__ = '2019.06.01'
 
 __ABOUT__   = '= tubmlr - command line uploader = (c) 2019 by Robert = version %s =' % __VERSION__
 
@@ -21,8 +21,11 @@ for configurable options check config file: %(cfg)s
 example:
 %(exe)s find-id id              ... find post id and print full json
 %(exe)s find-tag tag            ... find post(s)   tagged with tag tag and print only post id(s)
-%(exe)s find-tag all            ... find all posts (print only post id(s))
+%(exe)s list-tag id             ... list all tags for post id
+%(exe)s list-tag all            ... list all tags for all posts (all = * = -)
+%(exe)s list-posts              ... list all posts (print only post id(s))
 %(exe)s delete-id id            ... delete post id
+%(exe)s delete-id all           ... delete all posts (all = * = -)
 %(exe)s delete-tagged tag       ... delete all post tagged with tag tag
 %(exe)s photo file caption tags ... uploads photo file with caption and tags and print post id and url
 %(exe)s video file caption tags ... uploads video file with caption and tags and print post id and url
@@ -56,10 +59,10 @@ def usage(required=4):
 #
 if __name__ == '__main__':
 
-    # parameters (min 2 required)
+    # parameters (min 1 required)
     #
-    usage(required=2)
-    action, par = sys.argv[1].lower(), sys.argv[2]
+    usage(required=1)
+    action = sys.argv[1].lower()
 
     # verbosity/debug level
     #
@@ -82,39 +85,77 @@ if __name__ == '__main__':
     if not tumblr.info_rq():
         die(tumblr.last_error())
 
+    # LIST-POSTS
+    #
+    if action in ['list-posts', 'list-id']:
+        ids = tumblr.list_posts_ids()
+        if not ids:
+            die(tumblr.last_error())
+        print "IDs:", ' '.join(["%s" % id for id in ids])
+
+    # LIST-TAG id
+    #
+    if action in ['list-tag', 'list-tags']:
+        usage(required=2)
+        id = sys.argv[2]
+        if id in ['*', 'all', '-']:
+            id_tags = tumblr.list_posts_tags()
+            if not id_tags:
+                die(tumblr.last_error())
+            for id,tags in id_tags.items():
+                print "ID:", id,
+                print "TAGs:", ' '.join(["%s" % tag for tag in tags])
+        else:
+            tags = tumblr.find_id_get_tags(id=id)
+            if not tags:
+                die(tumblr.last_error())
+            print "ID:", id,
+            print "TAGs:", ' '.join(["%s" % tag for tag in tags])
+
     # DELETE id
     #
     if action in ['del-id', 'delete-id', 'rm-id', 'remove-id']:
+        usage(required=2)
+        par = sys.argv[2]
         id = None if par in ['*', 'all', '-'] else par
         if not tumblr.delete_post_rq(id=id):
             die(tumblr.last_error())
+        print "DELETED ID:", id
 
     # DELETE tagged
     #
     if action in ['del-tagged', 'delete-tagged', 'rm-tagged', 'remove-tagged']:
+        usage(required=2)
+        par = sys.argv[2]
         ids = tumblr.find_tag_get_ids(tag=par)
         if not ids:
             die(tumblr.last_error())
         for id in ids:
             if not tumblr.delete_post_rq(id=id):
                 die(tumblr.last_error())
+        print "DELETED IDs:", ' '.join(["%s" % id for id in ids])
 
     # FIND-TAG tag
     #
     if action in ['find', 'find-tag', 'tag']:
+        usage(required=2)
+        par = sys.argv[2]
         tag = None if par in ['*', 'all', '-'] else par
         ids = tumblr.find_tag_get_ids(tag=tag)
+        print "TAG: #%s" % tag
         if not ids:
             die(tumblr.last_error())
-        print "ID:", ' '.join(["%s" % id for id in ids])
+        print "IDs:", ' '.join(["%s" % id for id in ids])
 
     # FIND-ID id
     #
     if action in ['id', 'find-id']:
-        post = tumblr.find_id_get_post(id=par)
+        usage(required=2)
+        id = sys.argv[2]
+        post = tumblr.find_id_get_post(id=id)
         if not post:
             die(tumblr.last_error())
-        tumblr.debug_json(0, "post[%s]" % par, post)
+        tumblr.debug_json(0, "post[%s]" % id, post)
 
     # PHOTO file caption tags
     #
@@ -127,6 +168,9 @@ if __name__ == '__main__':
         if not idurl:
             die(tumblr.last_error())
         #
+        print "PHOTO:", photo
+        print "CAPTION:", caption
+        print "TAGs:", tags
         print "ID:",  idurl['id']
         print "URL:", idurl['url']
 
@@ -141,5 +185,8 @@ if __name__ == '__main__':
         if not idurl:
             die(tumblr.last_error())
         #
+        print "VIDEO:", video
+        print "CAPTION:", caption
+        print "TAGs:", tags
         print "ID:",  idurl['id']
         print "URL:", idurl['url']
