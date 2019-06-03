@@ -10,7 +10,7 @@ pytumblr:       https://github.com/tumblr/pytumblr
 
 """
 
-__VERSION__ = '2019.05.31'
+__VERSION__ = '2019.06.01'
 
 import os, json
 import re, datetime, time
@@ -105,17 +105,27 @@ class TumblrSimple:
         self.debug_json(1, 'tumblr.delete_post(blogname=%s, id=%s)' % (self.blogname, id), self.response)
         return self.response_is_ok()
 
+    def posts_rq(self):
+        """ get all posts """
+        self.response = self.tumblr.posts(self.blogname)
+        self.debug_json(1, 'tumblr.posts(blogname=%s)' % (self.blogname), self.response)
+        return self.response_is_ok()
+
     def find_tag_rq(self, tag):
         """ find post id with tag tag """
-        self.response =  self.tumblr.posts(self.blogname, tag=tag) if tag \
-                    else self.tumblr.posts(self.blogname)
+        self.response =  self.tumblr.posts(self.blogname, tag=tag)
         self.debug_json(1, 'tumblr.posts(blogname=%s, tag=%s)' % (self.blogname, tag), self.response)
         return self.response_is_ok()
 
     def get_ids_from_response(self):
         """ get list of ids from last response """
-        ids = [ post.get("id") for post in self.response["posts"] ]
+        ids = [post.get("id") for post in self.response["posts"]]
         return ids
+
+    def get_tags_from_response(self):
+        """ get dict of id -> [tags] from last response """
+        tags = dict([ (post.get("id"), post.get("tags")) for post in self.response["posts"]])
+        return tags
 
     def get_id_from_response(self):
         """ get is from response """
@@ -156,15 +166,35 @@ class TumblrSimple:
         self.debug_json(1, 'tumblr.posts(blogname=%s, id=%s)' % (self.blogname, id), self.response)
         return self.response_is_ok()
 
-    def get_path_from_response(self, path):
-        """ get path from response via configurable path """
+    def get_xpath_from_response(self, xpath):
+        """ get simplified xpath from response """
         # start from entire response
         result = self.response
-        # iterate all parts in path
-        for key in path.split('/'):
-            # if key is plural take the first item from list
-            result = result[key][0] if key.endswith('s') else result[key]
+        self.debug_json(7, 'TumblrSimple.get_xpath_from_response(%s) result:' % xpath, result)
+        # iterate all parts in xpath
+        for key in xpath.strip('/').split('/'):
+            # list[x] ?
+            m = re.match(r'^(\w+)\[(.+)\]$', key)
+            self.debug_json(7, 'TumblrSimple.get_xpath_from_response() key(%s) m(%s) result:' % (key, m.groups() if m else 'None'), result)
+            if m:
+                wkey, idx = m.group(1), int(m.group(2)) if m.group(2).isdigit() else m.group(2)
+                arr = result[wkey]
+                result = arr if idx == '' else arr[idx]
+            else:
+                result = result[key]
         return result
+
+    def list_posts_ids(self):
+        """ list all posts id(s) """
+        if not self.posts_rq():
+            return None
+        return self.get_ids_from_response()
+
+    def list_posts_tags(self):
+        """ list all posts id(s) """
+        if not self.posts_rq():
+            return None
+        return self.get_tags_from_response()
 
     def find_tag_get_ids(self, tag):
         """ get post ids [list]  with tag tag """
@@ -172,11 +202,19 @@ class TumblrSimple:
             return None
         return self.get_ids_from_response()
 
-    def find_id_get_post(self, id, path='posts'):
-        """ get post for specific id """
+    def find_id_get_xpath(self, id, xpath):
+        """ get xpath for specific id """
         if not self.find_id_rq(id=id):
             return None
-        return self.get_path_from_response(path)
+        return self.get_xpath_from_response(xpath)
+
+    def find_id_get_post(self, id):
+        """ get post for specific id """
+        return self.find_id_get_xpath(id, xpath='/posts[0]')
+
+    def find_id_get_tags(self, id):
+        """ get post for specific id """
+        return self.find_id_get_xpath(id, xpath='/posts[0]/tags')
 
     def upload_photo_rq(self, photo, caption, tags):
         """ upload photo with caption and tags """
@@ -241,7 +279,7 @@ class TumblrSimple:
         while not self.find_id_rq(id):
             self.sleep(self.options.get("photo_wait", 5))
         # get photo url
-        url = self.get_path_from_response(path=self.options["photo_url"])
+        url = self.get_xpath_from_response(xpath=self.options["photo_url"])
         #
         return {
             'id':   id,
@@ -268,7 +306,7 @@ class TumblrSimple:
             return None
         return {
             'id':  self.get_ids_from_response()[0],
-            'url': self.get_path_from_response(path=self.options["video_url"])
+            'url': self.get_xpath_from_response(xpath=self.options["video_url"])
         }
 
     def rectify_tags(self, tags, sep=',', trim=True, uniq=True, mapfnc=None, sortfnc=None):
