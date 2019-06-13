@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-__VERSION__ = '2019.06.01'
+__VERSION__ = '2019.06.12'
 
 __ABOUT__   = '= tubmlr - command line uploader = (c) 2019 by Robert = version %s =' % __VERSION__
 
@@ -190,3 +190,7 @@ if __name__ == '__main__':
         print "TAGs:", tags
         print "ID:",  idurl['id']
         print "URL:", idurl['url']
+
+    # API calls stats
+    #
+    print "Tumblr.API calls:", tumblr.api_rq_cnt
