@@ -10,7 +10,7 @@ pytumblr:       https://github.com/tumblr/pytumblr
 
 """
 
-__VERSION__ = '2019.06.12'
+__VERSION__ = '2019.06.14'
 
 import os, json
 import re, datetime, time
@@ -24,14 +24,15 @@ class Tags:
     sep = ','
 
     # preprocess each item before processing
-    rectify_item = str.strip
+    rectify_item = unicode.strip
 
     def __init__(self, data):
         """ init from string or list """
-        if type(data) == list:
-            self.lst = map(self.rectify_item, data)
-        else:
-            self.lst = map(self.rectify_item, self.sep.split(data))
+        # create unicode list from string/unicode
+        if type(data) != list:
+            data = [ unicode(t, 'utf8') for t in data.split(Tags.sep) ]
+        # rectify list items
+        self.lst = map(Tags.rectify_item, data)
 
     def as_string(self):
         return self.sep.join(self.lst)
@@ -42,21 +43,31 @@ class Tags:
     def remove(self, data):
         if type(data) == list:
             for item in data:
-                item = self.rectify_item(item)
+                item = Tags.rectify_item(item)
                 if item in self.lst:
                     self.lst.remove(item)
         else:
-            self.lst.remove(self.rectify_item(data))
+            # force unicode
+            if type(data) == str:
+                data = unicode(data, 'utf8')
+            # only remove if present in the list
+            if data in self.lst:
+                self.lst.remove(Tags.rectify_item(data))
         return self
 
     def add(self, data):
         if type(data) == list:
             for item in data:
-                item = self.rectify_item(item)
+                item = Tags.rectify_item(item)
                 if item not in self.lst:
                     self.lst.append(item)
         else:
-            self.lst.append(self.rectify_item(data))
+            # force unicode
+            if type(data) == str:
+                data = unicode(data, 'utf8')
+            # only add tag if not already in the list
+            if data not in self.lst:
+                self.lst.append(Tags.rectify_item(data))
         return self
 
 
@@ -97,11 +108,8 @@ class TumblrSimple:
     def cfg_filename(cls, exename, ext='.json'):
         """ derive cfg filename from exename and add extension ext """
         basename = os.path.basename(exename)
-        # remove '.py' extension
-        if basename.endswith('.py'):
-            basename = basename[:-3]
-        # add extension
-        return basename + ext
+        # replace extension
+        return basename.replace('.py', ext)
 
     @classmethod
     def debug_json(cls, level, action, jsn, stampfrm='[ %Y-%m-%d %X ]'):
@@ -193,14 +201,14 @@ class TumblrSimple:
             tg.add(gmt)
             gmtstr = gmt.replace('T', ' ')
         # tags in csv format as string
-        csvtags = tg.as_string()
+        ltags = tg.as_list()
         # post photo
         self.response = self.tumblr.create_photo(
             self.blogname, state="published", format="markdown",
-            tags=csvtags, data=photo,
+            tags=ltags, data=photo,
             caption=caption, date=gmtstr + ' GMT')
         self.api_rq_cnt += 1
-        self.debug_json(1, 'tumblr.create_photo(photo=%s, date=%s, tags=%s)' % (photo, gmtstr, csvtags), self.response)
+        self.debug_json(1, 'tumblr.create_photo(photo=%s, date=%s, tags=%s)' % (photo, gmtstr, ltags), self.response)
         # check response for errors
         return self.response_is_ok()
 
@@ -219,14 +227,14 @@ class TumblrSimple:
             tg.add(gmt)
             gmtstr = gmt.replace('T', ' ')
         # tags in csv format as string
-        csvtags = tg.as_string()
+        ltags = tg.as_list()
         # post video
         self.response = self.tumblr.create_video(
             self.blogname, state="published", format="markdown",
-            tags=csvtags, data=video,
+            tags=ltags, data=video,
             caption=caption, date=gmtstr + ' GMT')
         self.api_rq_cnt += 1
-        self.debug_json(1, 'tumblr.create_video(video=%s, date=%s, tags=%s)' % (video, gmtstr, csvtags), self.response)
+        self.debug_json(1, 'tumblr.create_video(video=%s, date=%s, tags=%s)' % (video, gmtstr, ltags), self.response)
         # check response for errors
         return self.response_is_ok()
 
@@ -314,6 +322,8 @@ class TumblrSimple:
                 result = result[key]
         return result
 
+    # tumblrsimple methods to be called
+
     def list_posts_ids(self):
         """ list all posts id(s) """
         if not self.posts_rq():
@@ -345,8 +355,6 @@ class TumblrSimple:
     def find_id_get_tags(self, id):
         """ get post for specific id """
         return self.find_id_get_xpath(id, xpath='/posts[0]/tags')
-
-    # tumblrsimple methods to be called
 
     def upload_photo_get_id_url(self, photo, caption, tags):
         """ upload photo with caption and tags and return id/url """
@@ -392,24 +400,24 @@ class TumblrSimple:
             'url': self.get_xpath_from_response(xpath=self.options["video_url"])
         }
         # remove uid tag
-        self.id_del_tags("%s" % uid)
+        self.id_del_tags(id=id_url['id'], deltags="%s" % uid)
         #
         return id_url
 
     def id_add_tags(self, id, addtags):
         """ add tags (csv or list) to post id """
         # post-id tags
-        tags = Tags(self.find_id_get_tags(id=id))
+        tgs = Tags(self.find_id_get_tags(id=id))
         # add new tags
-        tags.add(addtags)
+        tgs.add(addtags)
         # edit post with new tags
-        return self.edit_post_rq(id, tags=Tags.as_list())
+        return self.edit_post_rq(id, tags=tgs.as_list())
 
     def id_del_tags(self, id, deltags):
         """ remove tags (csv or list) from post id """
         # post-id tags
-        tags = Tags(self.find_id_get_tags(id=id))
+        tgs = Tags(self.find_id_get_tags(id=id))
         # remove tags
-        tags.remove(deltags)
+        tgs.remove(deltags)
         # edit post with new tags
-        return self.edit_post_rq(id, tags=Tags.as_list())
+        return self.edit_post_rq(id, tags=tgs.as_list())
