@@ -10,17 +10,62 @@ pytumblr:       https://github.com/tumblr/pytumblr
 
 """
 
-__VERSION__ = '2019.06.01'
+__VERSION__ = '2019.06.12'
 
 import os, json
 import re, datetime, time
 import pytumblr
 
 
+class Tags:
+    """ tags class for working with tags as csv string and tags as list """
+
+    # separator / csv string format
+    sep = ','
+
+    # preprocess each item before processing
+    rectify_item = str.strip
+
+    def __init__(self, data):
+        """ init from string or list """
+        if type(data) == list:
+            self.lst = map(self.rectify_item, data)
+        else:
+            self.lst = map(self.rectify_item, self.sep.split(data))
+
+    def as_string(self):
+        return self.sep.join(self.lst)
+
+    def as_list(self):
+        return self.lst
+
+    def remove(self, data):
+        if type(data) == list:
+            for item in data:
+                item = self.rectify_item(item)
+                if item in self.lst:
+                    self.lst.remove(item)
+        else:
+            self.lst.remove(self.rectify_item(data))
+        return self
+
+    def add(self, data):
+        if type(data) == list:
+            for item in data:
+                item = self.rectify_item(item)
+                if item not in self.lst:
+                    self.lst.append(item)
+        else:
+            self.lst.append(self.rectify_item(data))
+        return self
+
+
 class TumblrSimple:
     """ simple Tumblr operations """
 
     verbosity = 0
+
+    api_rq_cnt = 0
 
     def __init__(self, consumer, oauth, blogname, options):
         """ init tumblr with auth parameters, blogname and options """
@@ -34,6 +79,13 @@ class TumblrSimple:
         self.options  = options
 
     @classmethod
+    def no_warnings(cls):
+        """ Suppress warnings: InsecurePlatformWarning, SNIMissingWarning """
+        # https://stackoverflow.com/questions/29099404/ssl-insecureplatform-error-when-using-requests-package
+        import requests.packages.urllib3
+        requests.packages.urllib3.disable_warnings()
+
+    @classmethod
     def read_cfg(cls, filename):
         """ init tumbler from json config file """
         with open(filename, "r") as f:
@@ -42,16 +94,143 @@ class TumblrSimple:
         return cls(cfg["consumer"], cfg["oauth"], cfg["blog_name"], cfg["options"]) if cfg else None
 
     @classmethod
-    def no_warnings(cls):
-        """ Suppress warnings: InsecurePlatformWarning, SNIMissingWarning """
-        # https://stackoverflow.com/questions/29099404/ssl-insecureplatform-error-when-using-requests-package
-        import requests.packages.urllib3
-        requests.packages.urllib3.disable_warnings()
+    def cfg_filename(cls, exename, ext='.json'):
+        """ derive cfg filename from exename and add extension ext """
+        basename = os.path.basename(exename)
+        # remove '.py' extension
+        if basename.endswith('.py'):
+            basename = basename[:-3]
+        # add extension
+        return basename + ext
+
+    @classmethod
+    def debug_json(cls, level, action, jsn, stampfrm='[ %Y-%m-%d %X ]'):
+        """ debug output with pretty formatted json """
+        if level > cls.verbosity: return
+        stamp = datetime.datetime.now().strftime(stampfrm) if stampfrm else ''
+        print "%s" % stamp, '>>>', action, ">>>"
+        print json.dumps(jsn, indent=4, sort_keys=True)
+        print
+
+    # helpers - consider them to be static or class methods
+
+    def gmt_media(self, media):
+        """ get GMT time from media filename or file in isoformat YYYY-MM-DDTHH:mm:ss """
+        # basename
+        basenamemedia = os.path.basename(media)
+        # default gmt from media file
+        mtime = datetime.datetime.fromtimestamp(int(os.path.getmtime(media)))
+        gmt = mtime.isoformat()
+        # try media file name FUJI20170721T134312.JPG
+        m = re.match(r'[A-Za-z]+(\d\d\d\d)(\d\d)(\d\d)T(\d\d)(\d\d)(\d\d)\.[A-Za-z]+', basenamemedia)
+        if m:
+            y, m, d, hh, mm, ss = m.group(1), m.group(2), m.group(3), m.group(4), m.group(5), m.group(6)
+            # "2019-01-10T22:26:25"
+            gmt = "%s-%s-%sT%s:%s:%s" % (y, m, d, hh, mm, ss)
+        return gmt
 
     def sleep(self, sec):
         """ sleep sec seconds """
         time.sleep(sec)
         return
+
+    # tumblr requests
+
+    def info_rq(self):
+        """ get info """
+        self.response = self.tumblr.info()
+        self.api_rq_cnt += 1
+        self.debug_json(1, "tumblr.info()", self.response)
+        return self.response_is_ok()
+
+    def delete_post_rq(self, id):
+        """ delete post id """
+        self.response = self.tumblr.delete_post(self.blogname, id)
+        self.api_rq_cnt += 1
+        self.debug_json(1, 'tumblr.delete_post(blogname=%s, id=%s)' % (self.blogname, id), self.response)
+        return self.response_is_ok()
+
+    def edit_post_rq(self, id, **kwargs):
+        """ edit post id """
+        self.response = self.tumblr.edit_post(self.blogname, id=id, **kwargs)
+        self.api_rq_cnt += 1
+        self.debug_json(1, 'tumblr.edit_post(blogname=%s, id=%s)' % (self.blogname, id), self.response)
+        return self.response_is_ok()
+
+    def posts_rq(self):
+        """ get all posts """
+        self.response = self.tumblr.posts(self.blogname)
+        self.api_rq_cnt += 1
+        self.debug_json(1, 'tumblr.posts(blogname=%s)' % (self.blogname), self.response)
+        return self.response_is_ok()
+
+    def find_id_rq(self, id):
+        """ get post for specific id """
+        self.response = self.tumblr.posts(self.blogname, id=id)
+        self.api_rq_cnt += 1
+        self.debug_json(1, 'tumblr.posts(blogname=%s, id=%s)' % (self.blogname, id), self.response)
+        return self.response_is_ok()
+
+    def find_tag_rq(self, tag):
+        """ find post id with tag tag """
+        self.response =  self.tumblr.posts(self.blogname, tag=tag)
+        self.api_rq_cnt += 1
+        self.debug_json(1, 'tumblr.posts(blogname=%s, tag=%s)' % (self.blogname, tag), self.response)
+        return self.response_is_ok()
+
+    def upload_photo_rq(self, photo, caption, csvtags):
+        """ upload photo with caption and tags """
+        # default timestamp is UTC now
+        gmtstr = datetime.datetime.utcnow().isoformat(' ')
+        # comma separated -> list, trim tags and skip empty tags
+        tg = Tags(csvtags)
+        # optional add filename
+        if self.options.get("auto_tag_filename"):
+            tg.add(os.path.basename(photo))
+        # optional add timestamp
+        if self.options.get("auto_tag_timestamp"):
+            gmt = self.gmt_media(photo)
+            tg.add(gmt)
+            gmtstr = gmt.replace('T', ' ')
+        # tags in csv format as string
+        csvtags = tg.as_string()
+        # post photo
+        self.response = self.tumblr.create_photo(
+            self.blogname, state="published", format="markdown",
+            tags=csvtags, data=photo,
+            caption=caption, date=gmtstr + ' GMT')
+        self.api_rq_cnt += 1
+        self.debug_json(1, 'tumblr.create_photo(photo=%s, date=%s, tags=%s)' % (photo, gmtstr, csvtags), self.response)
+        # check response for errors
+        return self.response_is_ok()
+
+    def upload_video_rq(self, video, caption, csvtags):
+        """ upload video with caption and tags """
+        # default timestap is UTC now
+        gmtstr = datetime.datetime.utcnow().isoformat(' ')
+        # comma separated -> list, trim tags and skip empty tags
+        tg = Tags(csvtags)
+        # optional add filename
+        if self.options.get("auto_tag_filename"):
+            tg.add(os.path.basename(video))
+        # optional add timestamp
+        if self.options.get("auto_tag_timestamp"):
+            gmt = self.gmt_media(video)
+            tg.add(gmt)
+            gmtstr = gmt.replace('T', ' ')
+        # tags in csv format as string
+        csvtags = tg.as_string()
+        # post video
+        self.response = self.tumblr.create_video(
+            self.blogname, state="published", format="markdown",
+            tags=csvtags, data=video,
+            caption=caption, date=gmtstr + ' GMT')
+        self.api_rq_cnt += 1
+        self.debug_json(1, 'tumblr.create_video(video=%s, date=%s, tags=%s)' % (video, gmtstr, csvtags), self.response)
+        # check response for errors
+        return self.response_is_ok()
+
+    # response processing
 
     def last_error(self, idx=0):
         """ build error message from last response
@@ -93,30 +272,6 @@ class TumblrSimple:
         meta = self.response.get("meta")
         return False if meta else True
 
-    def info_rq(self):
-        """ get info """
-        self.response = self.tumblr.info()
-        self.debug_json(1, "tumblr.info()", self.response)
-        return self.response_is_ok()
-
-    def delete_post_rq(self, id):
-        """ delete post id """
-        self.response = self.tumblr.delete_post(self.blogname, id)
-        self.debug_json(1, 'tumblr.delete_post(blogname=%s, id=%s)' % (self.blogname, id), self.response)
-        return self.response_is_ok()
-
-    def posts_rq(self):
-        """ get all posts """
-        self.response = self.tumblr.posts(self.blogname)
-        self.debug_json(1, 'tumblr.posts(blogname=%s)' % (self.blogname), self.response)
-        return self.response_is_ok()
-
-    def find_tag_rq(self, tag):
-        """ find post id with tag tag """
-        self.response =  self.tumblr.posts(self.blogname, tag=tag)
-        self.debug_json(1, 'tumblr.posts(blogname=%s, tag=%s)' % (self.blogname, tag), self.response)
-        return self.response_is_ok()
-
     def get_ids_from_response(self):
         """ get list of ids from last response """
         ids = [post.get("id") for post in self.response["posts"]]
@@ -140,31 +295,6 @@ class TumblrSimple:
         """ get default post format (markdown, html) """
         user = self.response.get("user")
         return user.get("default_post_format", '?') if user else '?'
-
-    def trim_tags(self, tags):
-        """ trim tags and covert from comma separated values to list """
-        return [t.strip() for t in tags.split(',') if len(t.strip())]
-
-    def gmt_media(self, media):
-        """ get GMT time from media filename or file in isoformat YYYY-MM-DDTHH:mm:ss """
-        # basename
-        basenamemedia = os.path.basename(media)
-        # default gmt from media file
-        mtime = datetime.datetime.fromtimestamp(int(os.path.getmtime(media)))
-        gmt = mtime.isoformat()
-        # try media file name FUJI20170721T134312.JPG
-        m = re.match(r'[A-Za-z]+(\d\d\d\d)(\d\d)(\d\d)T(\d\d)(\d\d)(\d\d)\.[A-Za-z]+', basenamemedia)
-        if m:
-            y, m, d, hh, mm, ss = m.group(1), m.group(2), m.group(3), m.group(4), m.group(5), m.group(6)
-            # "2019-01-10T22:26:25"
-            gmt = "%s-%s-%sT%s:%s:%s" % (y, m, d, hh, mm, ss)
-        return gmt
-
-    def find_id_rq(self, id):
-        """ get post for specific id """
-        self.response = self.tumblr.posts(self.blogname, id=id)
-        self.debug_json(1, 'tumblr.posts(blogname=%s, id=%s)' % (self.blogname, id), self.response)
-        return self.response_is_ok()
 
     def get_xpath_from_response(self, xpath):
         """ get simplified xpath from response """
@@ -216,55 +346,7 @@ class TumblrSimple:
         """ get post for specific id """
         return self.find_id_get_xpath(id, xpath='/posts[0]/tags')
 
-    def upload_photo_rq(self, photo, caption, tags):
-        """ upload photo with caption and tags """
-        # default timestamp is UTC now
-        gmtstr = datetime.datetime.utcnow().isoformat(' ')
-        # comma separated -> list, trim tags and skip empty tags
-        tags = self.trim_tags(tags)
-        # optional add filename
-        if self.options.get("auto_tag_filename"):
-            tags.append(os.path.basename(photo))
-        # optional add timestamp
-        if self.options.get("auto_tag_timestamp"):
-            gmt = self.gmt_media(photo)
-            tags.append(gmt)
-            gmtstr = gmt.replace('T', ' ')
-        # rectify tags
-        tags = self.rectify_tags(tags)
-        # post photo
-        self.response = self.tumblr.create_photo(
-                            self.blogname, state="published", format="markdown",
-                            tags=tags, data=photo,
-                            caption=caption, date=gmtstr + ' GMT')
-        self.debug_json(1, 'tumblr.create_photo(photo=%s, date=%s, tags=%s)' % (photo, gmtstr, tags), self.response)
-        # check response for errors
-        return self.response_is_ok()
-
-    def upload_video_rq(self, video, caption, tags):
-        """ upload video with caption and tags """
-        # default timestap is UTC now
-        gmtstr = datetime.datetime.utcnow().isoformat(' ')
-        # comma separated -> list, trim tags and skip empty tags
-        tags = self.trim_tags(tags)
-        # optional add filename
-        if self.options.get("auto_tag_filename"):
-            tags.append(os.path.basename(video))
-        # optional add timestamp
-        if self.options.get("auto_tag_timestamp"):
-            gmt = self.gmt_media(video)
-            tags.append(gmt)
-            gmtstr = gmt.replace('T', ' ')
-        # rectify tags
-        tags = self.rectify_tags(tags)
-        # post video
-        self.response = self.tumblr.create_video(
-                            self.blogname, state="published", format="markdown",
-                            tags=tags, data=video,
-                            caption=caption, date=gmtstr + ' GMT')
-        self.debug_json(1, 'tumblr.create_video(video=%s, date=%s, tags=%s)' % (video, gmtstr, tags), self.response)
-        # check response for errors
-        return self.response_is_ok()
+    # tumblrsimple methods to be called
 
     def upload_photo_get_id_url(self, photo, caption, tags):
         """ upload photo with caption and tags and return id/url """
@@ -304,41 +386,30 @@ class TumblrSimple:
         # find post by uid
         if not self.find_tag_rq(uid):
             return None
-        return {
+        # result id/url
+        id_url = {
             'id':  self.get_ids_from_response()[0],
             'url': self.get_xpath_from_response(xpath=self.options["video_url"])
         }
+        # remove uid tag
+        self.id_del_tags("%s" % uid)
+        #
+        return id_url
 
-    def rectify_tags(self, tags, sep=',', trim=True, uniq=True, mapfnc=None, sortfnc=None):
-        """ rectify (trim, unique, map, sort) tags (list or string) """
-        # split string to list
-        ltags = sep.split(tags) if type(tags) in [str, unicode] else tags
-        if trim:
-            ltags = map(str.strip, ltags)
-        if uniq:
-            ltags = list(set(ltags))
-        if mapfnc:
-            ltags = map(mapfnc, ltags)
-        if sortfnc:
-            ltags = sortfnc(ltags)
-        # join list to string
-        return sep.join(tags)
+    def id_add_tags(self, id, addtags):
+        """ add tags (csv or list) to post id """
+        # post-id tags
+        tags = Tags(self.find_id_get_tags(id=id))
+        # add new tags
+        tags.add(addtags)
+        # edit post with new tags
+        return self.edit_post_rq(id, tags=Tags.as_list())
 
-    @classmethod
-    def cfg_filename(cls, exename, ext='.json'):
-        """ derive cfg filename from exename and add extension ext """
-        basename = os.path.basename(exename)
-        # remove '.py' extension
-        if basename.endswith('.py'):
-            basename = basename[:-3]
-        # add extension
-        return basename + ext
-
-    @classmethod
-    def debug_json(cls, level, action, jsn, stampfrm='[ %Y-%m-%d %X ]'):
-        """ debug output with pretty formatted json """
-        if level > cls.verbosity: return
-        stamp = datetime.datetime.now().strftime(stampfrm) if stampfrm else ''
-        print "%s" % stamp, '>>>', action, ">>>"
-        print json.dumps(jsn, indent=4, sort_keys=True)
-        print
+    def id_del_tags(self, id, deltags):
+        """ remove tags (csv or list) from post id """
+        # post-id tags
+        tags = Tags(self.find_id_get_tags(id=id))
+        # remove tags
+        tags.remove(deltags)
+        # edit post with new tags
+        return self.edit_post_rq(id, tags=Tags.as_list())
