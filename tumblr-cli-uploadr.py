@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-__VERSION__ = '2019.06.12'
+__VERSION__ = '2019.06.14'
 
 __ABOUT__   = '= tubmlr - command line uploader = (c) 2019 by Robert = version %s =' % __VERSION__
 
@@ -27,10 +27,11 @@ example:
 %(exe)s delete-id id            ... delete post id
 %(exe)s delete-id all           ... delete all posts (all = * = -)
 %(exe)s delete-tagged tag       ... delete all post tagged with tag tag
+%(exe)s add-tag tag1,tag2 id    ... add tag1 and tag2 to post id
+%(exe)s del-tag tag1,tag2 id    ... delete tag1 and tag2 from post id
 %(exe)s photo file caption tags ... uploads photo file with caption and tags and print post id and url
 %(exe)s video file caption tags ... uploads video file with caption and tags and print post id and url
-
-""" % { 'about': __ABOUT__, 'exe': os.path.basename(sys.argv[0]), 'cfg': os.path.basename(sys.argv[0])[:-3] + '.json' }
+""" % { 'about': __ABOUT__, 'exe': os.path.basename(sys.argv[0]), 'cfg': os.path.basename(sys.argv[0]).replace('.py', '.json') }
 
 # debug (verbosity) level
 #
@@ -157,6 +158,28 @@ if __name__ == '__main__':
             die(tumblr.last_error())
         tumblr.debug_json(0, "post[%s]" % id, post)
 
+    # ADD-TAG tag1,tag2 id
+    #
+    if action in ['add-tag', 'add-tags']:
+        usage(required=3)
+        tags = sys.argv[2]
+        id   = sys.argv[3]
+        post = tumblr.id_add_tags(id=id, addtags=tags)
+        if not post:
+            die(tumblr.last_error())
+        print "ID:",id,"+TAGS:",tags
+
+    # DEL-TAG tag1,tag2 id
+    #
+    if action in ['del-tag', 'del-tags', 'rm-tag', 'rm-tags']:
+        usage(required=3)
+        tags = sys.argv[2]
+        id   = sys.argv[3]
+        post = tumblr.id_del_tags(id=id, deltags=tags)
+        if not post:
+            die(tumblr.last_error())
+        print "ID:", id, "-TAGS:", tags
+
     # PHOTO file caption tags
     #
     if action in ["photo", "image", "picture"]:
@@ -193,4 +216,4 @@ if __name__ == '__main__':
 
     # API calls stats
     #
-    print "Tumblr.API calls:", tumblr.api_rq_cnt
+    print "Done Tumblr.API calls:", tumblr.api_rq_cnt
