@@ -11,8 +11,8 @@
     "options": {
         "auto_tag_filename":    true,
         "auto_tag_timestamp":   true,
-        "photo_url":            "posts/photos/original_size/url",
-        "video_url":            "posts/video_url",
+        "photo_url":            "/posts[0]/photos[0]/original_size/url",
+        "video_url":            "/posts[0]/video_url",
         "photo_wait":           5,
         "video_wait":           10
     }
