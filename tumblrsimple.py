@@ -10,7 +10,7 @@ pytumblr:       https://github.com/tumblr/pytumblr
 
 """
 
-__VERSION__ = '2019.06.14'
+__VERSION__ = '2019.06.16'
 
 import os, json
 import re, datetime, time
@@ -98,10 +98,13 @@ class TumblrSimple:
 
     @classmethod
     def read_cfg(cls, filename):
-        """ init tumbler from json config file """
-        with open(filename, "r") as f:
-            cfg = json.loads(f.read())
-        cls.debug_json(3, "cfg:", cfg)
+        """ init tumbler from json config file, returns None if any error occured """
+        try:
+            with open(filename, "r") as f:
+                cfg = json.loads(f.read())
+            cls.debug_json(3, "cfg:", cfg)
+        except IOError:
+            cfg = None
         return cls(cfg["consumer"], cfg["oauth"], cfg["blog_name"], cfg["options"]) if cfg else None
 
     @classmethod
@@ -109,7 +112,7 @@ class TumblrSimple:
         """ derive cfg filename from exename and add extension ext """
         basename = os.path.basename(exename)
         # replace extension
-        return basename.replace('.py', ext)
+        return basename.replace('.py', ext) if basename.endswith('.py') else basename + ext
 
     @classmethod
     def debug_json(cls, level, action, jsn, stampfrm='[ %Y-%m-%d %X ]'):
