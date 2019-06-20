@@ -10,7 +10,7 @@ pytumblr:       https://github.com/tumblr/pytumblr
 
 """
 
-__VERSION__ = '2019.06.16'
+__VERSION__ = '2019.06.18'
 
 import os, json
 import re, datetime, time
@@ -30,7 +30,7 @@ class Tags:
         """ init from string or list """
         # create unicode list from string/unicode
         if type(data) != list:
-            data = [ unicode(t, 'utf8') for t in data.split(Tags.sep) ]
+            data = [ unicode(t, 'utf8') if type(t) == str else t for t in data.split(Tags.sep) ]
         # rectify list items
         self.lst = map(Tags.rectify_item, data)
 
