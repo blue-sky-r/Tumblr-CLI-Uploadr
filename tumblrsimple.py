@@ -21,19 +21,28 @@ import pytumblr
 class Tags:
     """ tags class for working with tags as csv string and tags as list """
 
-    # separator / csv string format
-    sep = ','
-
-    # preprocess each item before processing
-    rectify_item = unicode.strip
-
-    def __init__(self, data):
+    def __init__(self, data, sep=','):
         """ init from string or list """
-        # create unicode list from string/unicode
-        if type(data) != list:
-            data = [ unicode(t, 'utf8') if type(t) == str else t for t in data.split(Tags.sep) ]
-        # rectify list items
-        self.lst = map(Tags.rectify_item, data)
+        # store csv separator
+        self.sep = sep
+        # rectify and convert to list
+        self.lst = self._to_relist(data)
+
+    def _rectify_item(self, item):
+        """ preprocess single item """
+        # force unicode
+        item = unicode(item, 'utf8') if type(item) == str else item
+        # stip whitespaces, strip seprators, covert to lowrcase
+        return item.strip().strip(self.sep).lower()
+
+    def _to_relist(self, par):
+        """ convert par to rectified list """
+        # assume csv if separator found in par
+        par = par.split(self.sep) if self.sep in par else par
+        # convert to list even if single item
+        par = par if type(par) == list else [par]
+        # rectify and return
+        return map(self._rectify_item, par)
 
     def as_string(self):
         return self.sep.join(self.lst)
@@ -41,37 +50,66 @@ class Tags:
     def as_list(self):
         return self.lst
 
+    def remove1(self, item):
+        """ remove single item """
+        # force unicode and rectify
+        item = self._rectify_item(unicode(item, 'utf8') if type(item) == str else item)
+        # remove
+        if item in self.lst:
+            self.lst.remove(item)
+        return self
+
     def remove(self, data):
+        """ remove list or item or csv """
+        # convert to list if data is csv
+        data = data.split(self.sep) if self.sep in data else data
+        # delete one-by-one if list
         if type(data) == list:
             for item in data:
-                item = Tags.rectify_item(item)
-                if item in self.lst:
-                    self.lst.remove(item)
+                self.remove1(item)
         else:
-            # force unicode
-            if type(data) == str:
-                data = unicode(data, 'utf8')
-            # only remove if present in the list
-            if data in self.lst:
-                self.lst.remove(Tags.rectify_item(data))
+            self.remove1(data)
+        #
+        return self
+
+    def add1(self, item, pos=None):
+        """ add single item at optional position pos - append by default """
+        # force unicode and rectify
+        item = Tags.rectify_item(unicode(item, 'utf8') if type(item) == str else item)
+        # add
+        if item not in self.lst:
+            # insert or append
+            self.lst.append(item) if pos is None else self.lst.insert(pos, item)
+        #
         return self
 
     def add(self, data, pos=None):
+        """ add list or item or csv at optional pos - append by default """
+        # convert to list if data is csv
+        data = data.split(self.sep) if self.sep in data else data
+        #
         if type(data) == list:
             for item in data:
-                item = Tags.rectify_item(item)
-                if item not in self.lst:
-                    self.lst.append(item)
+                self.add1(item, pos)
         else:
-            # force unicode
-            if type(data) == str:
-                data = unicode(data, 'utf8')
-            # only add tag if not already in the list
-            if data not in self.lst:
-                if pos == None:
-                    self.lst.append(Tags.rectify_item(data))
-                else:
-                    self.lst.insert(pos, Tags.rectify_item(data))
+            self.add1(data, pos)
+        #
+        return self
+
+    def limit_len(self, minlen=5):
+        """ elmininate tags shorter than minlen """
+        self.lst = filter(lambda tag: len(tag) >= minlen, self.lst)
+        return self
+
+    def limit_num(self, maxnum=20):
+        """ limit number of tags by removing shortest ones """
+        # start eliminating the shortest tag
+        for tag in sorted(self.lst, key=len):
+            # we are done when number <= maxnum
+            if len(self.lst) <= maxnum: break
+            # remove shortest tag
+            self.lst.remove(tag)
+        #
         return self
 
 
@@ -199,16 +237,16 @@ class TumblrSimple:
         gmtstr = datetime.datetime.utcnow().isoformat(' ')
         # comma separated -> list, trim tags and skip empty tags
         tg = Tags(csvtags)
-        # optional add filename
+        # optional add filename at the begining
         if self.options.get("auto_tag_filename"):
             tg.add(os.path.basename(photo), pos=0)
-        # optional add timestamp
+        # optional add timestamp after the filename
         if self.options.get("auto_tag_timestamp"):
             gmt = self.gmt_media(photo)
             tg.add(gmt, pos=1)
             gmtstr = gmt.replace('T', ' ')
-        # tags in csv format as string
-        ltags = tg.as_list()
+        # elmiminate shorter tags, limit number of tags and get in csv format as string
+        ltags = tg.limit_len(minlen=5).limit_num(maxnum=20).as_list()
         # post photo
         self.response = self.tumblr.create_photo(
             self.blogname, state="published", format="markdown",
@@ -225,15 +263,16 @@ class TumblrSimple:
         gmtstr = datetime.datetime.utcnow().isoformat(' ')
         # comma separated -> list, trim tags and skip empty tags
         tg = Tags(csvtags)
-        # optional add filename
+        # optional add filename after uid
         if self.options.get("auto_tag_filename"):
             tg.add(os.path.basename(video), pos=1)
-        # optional add timestamp
+        # optional add timestamp after uid,filename
         if self.options.get("auto_tag_timestamp"):
             gmt = self.gmt_media(video)
             tg.add(gmt, pos=2)
             gmtstr = gmt.replace('T', ' ')
-        # tags in csv format as string
+        # elmiminate shorter tags, limit number of tags and get in csv format as string
+        # ltags = tg.limit_len(minlen=5).limit_num(maxnum=20).as_list()
         ltags = tg.as_list()
         # post video
         self.response = self.tumblr.create_video(
