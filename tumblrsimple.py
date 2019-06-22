@@ -10,12 +10,13 @@ pytumblr:       https://github.com/tumblr/pytumblr
 
 """
 
-__VERSION__ = '2019.06.18'
+__VERSION__ = '2019.06.20'
 
 import os, json
 import re, datetime, time
 import pytumblr
 
+# Max 20 Tags -  https://unwrapping.tumblr.com/tagged/tumblr-limits
 
 class Tags:
     """ tags class for working with tags as csv string and tags as list """
@@ -55,7 +56,7 @@ class Tags:
                 self.lst.remove(Tags.rectify_item(data))
         return self
 
-    def add(self, data):
+    def add(self, data, pos=None):
         if type(data) == list:
             for item in data:
                 item = Tags.rectify_item(item)
@@ -67,7 +68,10 @@ class Tags:
                 data = unicode(data, 'utf8')
             # only add tag if not already in the list
             if data not in self.lst:
-                self.lst.append(Tags.rectify_item(data))
+                if pos == None:
+                    self.lst.append(Tags.rectify_item(data))
+                else:
+                    self.lst.insert(pos, Tags.rectify_item(data))
         return self
 
 
@@ -197,11 +201,11 @@ class TumblrSimple:
         tg = Tags(csvtags)
         # optional add filename
         if self.options.get("auto_tag_filename"):
-            tg.add(os.path.basename(photo))
+            tg.add(os.path.basename(photo), pos=0)
         # optional add timestamp
         if self.options.get("auto_tag_timestamp"):
             gmt = self.gmt_media(photo)
-            tg.add(gmt)
+            tg.add(gmt, pos=1)
             gmtstr = gmt.replace('T', ' ')
         # tags in csv format as string
         ltags = tg.as_list()
@@ -223,11 +227,11 @@ class TumblrSimple:
         tg = Tags(csvtags)
         # optional add filename
         if self.options.get("auto_tag_filename"):
-            tg.add(os.path.basename(video))
+            tg.add(os.path.basename(video), pos=1)
         # optional add timestamp
         if self.options.get("auto_tag_timestamp"):
             gmt = self.gmt_media(video)
-            tg.add(gmt)
+            tg.add(gmt, pos=2)
             gmtstr = gmt.replace('T', ' ')
         # tags in csv format as string
         ltags = tg.as_list()
@@ -384,7 +388,7 @@ class TumblrSimple:
         # unique id (unix timestamp) to find uploaded post after server processing
         uid = datetime.datetime.now().strftime('%s')
         # upload with added uid tag
-        if not self.upload_video_rq(video, caption, "%s,%s" % (tags, uid)):
+        if not self.upload_video_rq(video, caption, "%s,%s" % (uid, tags)):
             return None
         # this is just temporary/processing id returned from upload
         tid = self.get_id_from_response()
