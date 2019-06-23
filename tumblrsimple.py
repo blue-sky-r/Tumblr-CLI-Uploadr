@@ -21,12 +21,12 @@ import pytumblr
 class Tags:
     """ tags class for working with tags as csv string and tags as list """
 
-    def __init__(self, data, sep=','):
-        """ init from string or list """
+    def __init__(self, data=None, sep=','):
+        """ init from optional data (string or list or csv)"""
         # store csv separator
         self.sep = sep
         # rectify and convert to list
-        self.lst = self._to_relist(data)
+        self.lst = self._to_relist(data) if data else []
 
     def _rectify_item(self, item):
         """ preprocess single item """
@@ -50,10 +50,8 @@ class Tags:
     def as_list(self):
         return self.lst
 
-    def remove1(self, item):
+    def _remove1(self, item):
         """ remove single item """
-        # force unicode and rectify
-        item = self._rectify_item(unicode(item, 'utf8') if type(item) == str else item)
         # remove
         if item in self.lst:
             self.lst.remove(item)
@@ -61,22 +59,14 @@ class Tags:
 
     def remove(self, data):
         """ remove list or item or csv """
-        # convert to list if data is csv
-        data = data.split(self.sep) if self.sep in data else data
-        # delete one-by-one if list
-        if type(data) == list:
-            for item in data:
-                self.remove1(item)
-        else:
-            self.remove1(data)
+        for item in self._to_relist(data):
+            self._remove1(item)
         #
         return self
 
-    def add1(self, item, pos=None):
+    def _add1(self, item, pos=None):
         """ add single item at optional position pos - append by default """
-        # force unicode and rectify
-        item = Tags.rectify_item(unicode(item, 'utf8') if type(item) == str else item)
-        # add
+        # avoid duplicitiy
         if item not in self.lst:
             # insert or append
             self.lst.append(item) if pos is None else self.lst.insert(pos, item)
@@ -85,14 +75,8 @@ class Tags:
 
     def add(self, data, pos=None):
         """ add list or item or csv at optional pos - append by default """
-        # convert to list if data is csv
-        data = data.split(self.sep) if self.sep in data else data
-        #
-        if type(data) == list:
-            for item in data:
-                self.add1(item, pos)
-        else:
-            self.add1(data, pos)
+        for item in self._to_relist(data):
+            self._add1(item, pos)
         #
         return self
 
@@ -231,8 +215,12 @@ class TumblrSimple:
         self.debug_json(1, 'tumblr.posts(blogname=%s, tag=%s)' % (self.blogname, tag), self.response)
         return self.response_is_ok()
 
-    def upload_photo_rq(self, photo, caption, csvtags):
+    def upload_photo_rq(self, photo, caption, csvtags, **kwargs):
         """ upload photo with caption and tags """
+        #:param slug: a string, a short text summary to the end of the post url
+        #:param link: a string, the 'click-through' url you want on the photo
+        #:param source: a string, the photo source url
+        #
         # default timestamp is UTC now
         gmtstr = datetime.datetime.utcnow().isoformat(' ')
         # comma separated -> list, trim tags and skip empty tags
@@ -240,25 +228,31 @@ class TumblrSimple:
         # optional add filename at the begining
         if self.options.get("auto_tag_filename"):
             tg.add(os.path.basename(photo), pos=0)
+        # gmt from filename or file
+        gmt = self.gmt_media(photo)
+        gmtstr = gmt.replace('T', ' ')
         # optional add timestamp after the filename
         if self.options.get("auto_tag_timestamp"):
-            gmt = self.gmt_media(photo)
-            tg.add(gmt, pos=1)
-            gmtstr = gmt.replace('T', ' ')
+            tg.add(gmt.replace('T', '-'), pos=1)
         # elmiminate shorter tags, limit number of tags and get in csv format as string
         ltags = tg.limit_len(minlen=5).limit_num(maxnum=20).as_list()
         # post photo
         self.response = self.tumblr.create_photo(
             self.blogname, state="published", format="markdown",
             tags=ltags, data=photo,
-            caption=caption, date=gmtstr + ' GMT')
+            caption=caption, date=gmtstr + ' GMT',
+            **kwargs)
         self.api_rq_cnt += 1
-        self.debug_json(1, 'tumblr.create_photo(photo=%s, date=%s, tags=%s)' % (photo, gmtstr, ltags), self.response)
+        self.debug_json(1, 'tumblr.create_photo(photo=%s, date=%s, tags=%s, kwargs=%s)' \
+                        % (photo, gmtstr, ltags, kwargs), self.response)
         # check response for errors
         return self.response_is_ok()
 
-    def upload_video_rq(self, video, caption, csvtags):
+    def upload_video_rq(self, video, caption, csvtags, **kwargs):
         """ upload video with caption and tags """
+        #:param slug: a string, a short text summary to the end of the post url
+        #:param embed: a string, the emebed code that you'd like to upload
+        #
         # default timestap is UTC now
         gmtstr = datetime.datetime.utcnow().isoformat(' ')
         # comma separated -> list, trim tags and skip empty tags
@@ -266,21 +260,23 @@ class TumblrSimple:
         # optional add filename after uid
         if self.options.get("auto_tag_filename"):
             tg.add(os.path.basename(video), pos=1)
+        # gmt from filename or file
+        gmt = self.gmt_media(video)
+        gmtstr = gmt.replace('T', ' ')
         # optional add timestamp after uid,filename
         if self.options.get("auto_tag_timestamp"):
-            gmt = self.gmt_media(video)
-            tg.add(gmt, pos=2)
-            gmtstr = gmt.replace('T', ' ')
+            tg.add(gmt.replace('T', '-'), pos=2)
         # elmiminate shorter tags, limit number of tags and get in csv format as string
-        # ltags = tg.limit_len(minlen=5).limit_num(maxnum=20).as_list()
-        ltags = tg.as_list()
+        ltags = tg.limit_len(minlen=5).limit_num(maxnum=20).as_list()
         # post video
         self.response = self.tumblr.create_video(
             self.blogname, state="published", format="markdown",
             tags=ltags, data=video,
-            caption=caption, date=gmtstr + ' GMT')
+            caption=caption, date=gmtstr + ' GMT',
+            **kwargs)
         self.api_rq_cnt += 1
-        self.debug_json(1, 'tumblr.create_video(video=%s, date=%s, tags=%s)' % (video, gmtstr, ltags), self.response)
+        self.debug_json(1, 'tumblr.create_video(video=%s, date=%s, tags=%s, kwargs=%s)' \
+                        % (video, gmtstr, ltags, kwargs), self.response)
         # check response for errors
         return self.response_is_ok()
 
@@ -402,18 +398,21 @@ class TumblrSimple:
         """ get post for specific id """
         return self.find_id_get_xpath(id, xpath='/posts[0]/tags')
 
-    def upload_photo_get_id_url(self, photo, caption, tags):
+    def upload_photo_get_id_url(self, photo, caption, tags, **kwargs):
         """ upload photo with caption and tags and return id/url """
         # upload
-        if not self.upload_photo_rq(photo, caption, tags):
+        if not self.upload_photo_rq(photo, caption, tags, **kwargs):
             return None
         # get id
         id = self.get_id_from_response()
         # wait for server processing
-        self.sleep(self.options.get("photo_wait", 5))
-        # TODO: limit looping
-        while not self.find_id_rq(id):
+        for i in range(self.options.get("loop_wait", 100)):
             self.sleep(self.options.get("photo_wait", 5))
+            # success if id found
+            if self.find_id_rq(id): break
+        # timeout waiting for server processing
+        else:
+            return None
         # get photo url
         url = self.get_xpath_from_response(xpath=self.options["photo_url"])
         #
@@ -422,21 +421,23 @@ class TumblrSimple:
             'url':  url
         }
 
-    def upload_video_get_id_url(self, video, caption, tags):
+    def upload_video_get_id_url(self, video, caption, tags, **kwargs):
         """ upload video with caption and tags and return id/url """
         # unique id (unix timestamp) to find uploaded post after server processing
         uid = datetime.datetime.now().strftime('%s')
         # upload with added uid tag
-        if not self.upload_video_rq(video, caption, "%s,%s" % (uid, tags)):
+        if not self.upload_video_rq(video, caption, "%s,%s" % (uid, tags), **kwargs):
             return None
         # this is just temporary/processing id returned from upload
         tid = self.get_id_from_response()
         # wait for server processing
-        self.sleep(self.options.get("video_wait", 10))
-        # sleep until temporary id is valid (server is processing video)
-        # TODO: limit looping
-        while self.find_id_rq(tid):
+        for i in range(self.options.get("loop_wait", 100)):
             self.sleep(self.options.get("video_wait", 10))
+            # success if temporary tid not found any more - processing done
+            if not self.find_id_rq(tid): break
+        # timeout waiting for server processing
+        else:
+            return None
         # find post by uid
         if not self.find_tag_rq(uid):
             return None
