@@ -10,7 +10,7 @@ pytumblr:       https://github.com/tumblr/pytumblr
 
 """
 
-__VERSION__ = '2019.06.20'
+__VERSION__ = '2019.06.21'
 
 import os, json
 import re, datetime, time
@@ -158,8 +158,8 @@ class TumblrSimple:
         # default gmt from media file
         mtime = datetime.datetime.fromtimestamp(int(os.path.getmtime(media)))
         gmt = mtime.isoformat()
-        # try media file name FUJI20170721T134312.JPG
-        m = re.match(r'[A-Za-z]+(\d\d\d\d)(\d\d)(\d\d)T(\d\d)(\d\d)(\d\d)\.[A-Za-z]+', basenamemedia)
+        # try media file name FUJI20170721T134312.JPG FUJI20170721T134312.MP4
+        m = re.match(r'[A-Za-z]+(\d\d\d\d)(\d\d)(\d\d)T(\d\d)(\d\d)(\d\d)\.[A-Za-z0-9]+', basenamemedia)
         if m:
             y, m, d, hh, mm, ss = m.group(1), m.group(2), m.group(3), m.group(4), m.group(5), m.group(6)
             # "2019-01-10T22:26:25"
