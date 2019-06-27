@@ -14,6 +14,7 @@
         "photo_url":            "/posts[0]/photos[0]/original_size/url",
         "video_url":            "/posts[0]/video_url",
         "photo_wait":           5,
-        "video_wait":           10
+        "video_wait":           10,
+        "loop_wait":            20
     }
 }
