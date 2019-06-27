@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-__VERSION__ = '2019.06.14'
+__VERSION__ = '2019.06.16'
 
 __ABOUT__   = '= tubmlr - command line uploader = (c) 2019 by Robert = version %s =' % __VERSION__
 
@@ -75,7 +75,7 @@ if __name__ == '__main__':
     tumblr = tumblrsimple.TumblrSimple.read_cfg(cfgfile)
     #
     if not tumblr:
-        die("ERROR: broken config file: %s" % cfgfile)
+        die("ERROR: broken/missing config file: %s" % cfgfile)
 
     # suppress warnings: InsecurePlatformWarning, SNIMissingWarning for older libraries
     #
@@ -216,4 +216,4 @@ if __name__ == '__main__':
 
     # API calls stats
     #
-    print "Done Tumblr.API calls:", tumblr.api_rq_cnt
+    print "Done - Tumblr.API calls:", tumblr.api_rq_cnt
