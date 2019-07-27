@@ -10,7 +10,7 @@ pytumblr:       https://github.com/tumblr/pytumblr
 
 """
 
-__VERSION__ = '2019.06.21'
+__VERSION__ = '2019.07.16'
 
 import os, json
 import re, datetime, time
@@ -235,7 +235,7 @@ class TumblrSimple:
         if self.options.get("auto_tag_timestamp"):
             tg.add(gmt.replace('T', '-'), pos=1)
         # elmiminate shorter tags, limit number of tags and get in csv format as string
-        ltags = tg.limit_len(minlen=5).limit_num(maxnum=20).as_list()
+        ltags = tg.limit_len(minlen=self.options.get("tag_min_len", 5)).limit_num(maxnum=self.options.get("tag_max_cnt", 20)).as_list()
         # post photo
         self.response = self.tumblr.create_photo(
             self.blogname, state="published", format="markdown",
@@ -267,7 +267,8 @@ class TumblrSimple:
         if self.options.get("auto_tag_timestamp"):
             tg.add(gmt.replace('T', '-'), pos=2)
         # elmiminate shorter tags, limit number of tags and get in csv format as string
-        ltags = tg.limit_len(minlen=5).limit_num(maxnum=20).as_list()
+        #ltags = tg.limit_len(minlen=3).limit_num(maxnum=20).as_list()
+        ltags = tg.limit_len(minlen=self.options.get("tag_min_len", 5)).limit_num(maxnum=self.options.get("tag_max_cnt", 20)).as_list()        
         # post video
         self.response = self.tumblr.create_video(
             self.blogname, state="published", format="markdown",
