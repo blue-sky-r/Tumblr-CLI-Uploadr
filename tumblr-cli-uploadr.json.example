@@ -11,6 +11,8 @@
     "options": {
         "auto_tag_filename":    true,
         "auto_tag_timestamp":   true,
+        "tag_min_len":		    3,
+        "tag_max_cnt":		    20,
         "photo_url":            "/posts[0]/photos[0]/original_size/url",
         "video_url":            "/posts[0]/video_url",
         "photo_wait":           5,
