@@ -10,7 +10,7 @@ pytumblr:       https://github.com/tumblr/pytumblr
 
 """
 
-__VERSION__ = '2019.07.16'
+__VERSION__ = '2019.07.30'
 
 import os, json
 import re, datetime, time
@@ -21,19 +21,23 @@ import pytumblr
 class Tags:
     """ tags class for working with tags as csv string and tags as list """
 
-    def __init__(self, data=None, sep=','):
-        """ init from optional data (string or list or csv)"""
+    def __init__(self, data=None, sep=',', casefnc=unicode.lower):
+        """ init from optional data (string or list or csv), optional separator and unicode case-function """
         # store csv separator
         self.sep = sep
+        # store case function
+        self.casefnc = casefnc
         # rectify and convert to list
         self.lst = self._to_relist(data) if data else []
 
     def _rectify_item(self, item):
-        """ preprocess single item """
+        """ preprocess single item - unicode, stip, lower/upper/title """
         # force unicode
         item = unicode(item, 'utf8') if type(item) == str else item
-        # stip whitespaces, strip seprators, covert to lowrcase
-        return item.strip().strip(self.sep).lower()
+        # stip whitespaces, strip seprators
+        item = item.strip().strip(self.sep).strip()
+        # optional custom case conversion
+        return item if self.casefnc is None else self.casefnc(item)
 
     def _to_relist(self, par):
         """ convert par to rectified list """
@@ -158,8 +162,9 @@ class TumblrSimple:
         # default gmt from media file
         mtime = datetime.datetime.fromtimestamp(int(os.path.getmtime(media)))
         gmt = mtime.isoformat()
-        # try media file name FUJI20170721T134312.JPG FUJI20170721T134312.MP4
-        m = re.match(r'[A-Za-z]+(\d\d\d\d)(\d\d)(\d\d)T(\d\d)(\d\d)(\d\d)\.[A-Za-z0-9]+', basenamemedia)
+        # try media   file name FUJI20170721T134312.JPG  FUJI20170721T134312.MP4
+        # or censored file name FUJI20170721T134312c.JPG FUJI20170721T134312c.MP4
+        m = re.match(r'[A-Za-z]+(\d\d\d\d)(\d\d)(\d\d)T(\d\d)(\d\d)(\d\d)c?\.[A-Za-z0-9]+', basenamemedia)
         if m:
             y, m, d, hh, mm, ss = m.group(1), m.group(2), m.group(3), m.group(4), m.group(5), m.group(6)
             # "2019-01-10T22:26:25"
@@ -267,8 +272,7 @@ class TumblrSimple:
         if self.options.get("auto_tag_timestamp"):
             tg.add(gmt.replace('T', '-'), pos=2)
         # elmiminate shorter tags, limit number of tags and get in csv format as string
-        #ltags = tg.limit_len(minlen=3).limit_num(maxnum=20).as_list()
-        ltags = tg.limit_len(minlen=self.options.get("tag_min_len", 5)).limit_num(maxnum=self.options.get("tag_max_cnt", 20)).as_list()        
+        ltags = tg.limit_len(minlen=self.options.get("tag_min_len", 5)).limit_num(maxnum=self.options.get("tag_max_cnt", 20)).as_list()
         # post video
         self.response = self.tumblr.create_video(
             self.blogname, state="published", format="markdown",
