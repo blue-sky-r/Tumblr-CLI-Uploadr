@@ -10,7 +10,7 @@ pytumblr:       https://github.com/tumblr/pytumblr
 
 """
 
-__VERSION__ = '2020.03.01'
+__VERSION__ = '2020.03.07'
 
 import os, json, sys
 import re, datetime, time
@@ -409,6 +409,14 @@ class TumblrSimple:
         """ get post for specific id """
         return self.find_id_get_xpath(id, xpath='/posts[0]/tags')
 
+    def find_id_get_state(self, id):
+        """ get post state for specific id """
+        return self.find_id_get_xpath(id, xpath='/posts[0]/state')
+
+    def is_id_published(self, id):
+        """ check if id is already published (transcoded abnd processed) """
+        return self.find_id_get_state(id) == 'published'
+
     def upload_photo_get_id_url(self, photo, caption, tags, progress=None, **kwargs):
         """ upload photo with caption and tags and return id/url, pptional progress str s[0] wait, s[1] timeout """
         # upload
@@ -437,21 +445,17 @@ class TumblrSimple:
         }
 
     def upload_video_get_id_url(self, video, caption, tags, progress=None, **kwargs):
-        """ upload video with caption and tags and return id/url,
-            optional progress string str s[0] wait, s[1] timeout, s[2] error
-        """
-        # unique id (unix timestamp) to find uploaded post after server processing
-        uid = datetime.datetime.now().strftime('%s')
+        """ upload video with caption and tags and return id/url, optional progress string str s[0] wait, s[1] timeout """
         # upload with added uid tag
-        if not self.upload_video_rq(video, caption, "%s,%s" % (uid, tags), **kwargs):
+        if not self.upload_video_rq(video, caption, tags, **kwargs):
             return None
-        # this is just temporary/processing id returned from upload
-        tid = self.get_id_from_response()
-        # wait for server processing
+        # id is returned from upload, but the status is 'transcoding'
+        id = self.get_id_from_response()
+        # wait for server processing (until status is 'published'
         for i in range(self.options.get("loop_wait", 100)):
             self.sleep(self.options.get("video_wait", 10))
-            # success if temporary tid not found any more - processing done
-            if not self.find_id_rq(tid): break
+            # success if status = 'published'
+            if self.is_id_published(id): break
             # optional progress
             if progress: self.echostr(progress[0])
         # timeout waiting for server processing
@@ -459,18 +463,11 @@ class TumblrSimple:
             # optional timeout
             if progress: self.echostr(progress[1]+' ')
             return None
-        # find post by uid
-        if not self.find_tag_rq(uid):
-            # optional error
-            if progress: print self.echostr(progress[2]+' ')
-            return None
         # result id/url
         id_url = {
-            'id':  self.get_ids_from_response()[0],
+            'id':  id,
             'url': self.get_xpath_from_response(xpath=self.options["video_url"])
         }
-        # remove uid tag
-        self.id_del_tags(id=id_url['id'], deltags="%s" % uid)
         #
         return id_url
 
