@@ -10,13 +10,14 @@ pytumblr:       https://github.com/tumblr/pytumblr
 
 """
 
-__VERSION__ = '2019.07.30'
+__VERSION__ = '2020.03.01'
 
-import os, json
+import os, json, sys
 import re, datetime, time
 import pytumblr
 
 # Max 20 Tags -  https://unwrapping.tumblr.com/tagged/tumblr-limits
+
 
 class Tags:
     """ tags class for working with tags as csv string and tags as list """
@@ -175,6 +176,11 @@ class TumblrSimple:
         """ sleep sec seconds """
         time.sleep(sec)
         return
+
+    def echostr(self, s):
+        """ echo char/str without any trailing - used only for optional progess visualization """
+        sys.stdout.write(s)
+        sys.stdout.flush()
 
     # tumblr requests
 
@@ -403,8 +409,8 @@ class TumblrSimple:
         """ get post for specific id """
         return self.find_id_get_xpath(id, xpath='/posts[0]/tags')
 
-    def upload_photo_get_id_url(self, photo, caption, tags, **kwargs):
-        """ upload photo with caption and tags and return id/url """
+    def upload_photo_get_id_url(self, photo, caption, tags, progress=None, **kwargs):
+        """ upload photo with caption and tags and return id/url, pptional progress str s[0] wait, s[1] timeout """
         # upload
         if not self.upload_photo_rq(photo, caption, tags, **kwargs):
             return None
@@ -415,8 +421,12 @@ class TumblrSimple:
             self.sleep(self.options.get("photo_wait", 5))
             # success if id found
             if self.find_id_rq(id): break
+            # optional progress
+            if progress: self.echostr(progress[0])
         # timeout waiting for server processing
         else:
+            # optional timeout
+            if progress: self.echostr(progress[1]+' ')
             return None
         # get photo url
         url = self.get_xpath_from_response(xpath=self.options["photo_url"])
@@ -426,8 +436,10 @@ class TumblrSimple:
             'url':  url
         }
 
-    def upload_video_get_id_url(self, video, caption, tags, **kwargs):
-        """ upload video with caption and tags and return id/url """
+    def upload_video_get_id_url(self, video, caption, tags, progress=None, **kwargs):
+        """ upload video with caption and tags and return id/url,
+            optional progress string str s[0] wait, s[1] timeout, s[2] error
+        """
         # unique id (unix timestamp) to find uploaded post after server processing
         uid = datetime.datetime.now().strftime('%s')
         # upload with added uid tag
@@ -440,11 +452,17 @@ class TumblrSimple:
             self.sleep(self.options.get("video_wait", 10))
             # success if temporary tid not found any more - processing done
             if not self.find_id_rq(tid): break
+            # optional progress
+            if progress: self.echostr(progress[0])
         # timeout waiting for server processing
         else:
+            # optional timeout
+            if progress: self.echostr(progress[1]+' ')
             return None
         # find post by uid
         if not self.find_tag_rq(uid):
+            # optional error
+            if progress: print self.echostr(progress[2]+' ')
             return None
         # result id/url
         id_url = {
