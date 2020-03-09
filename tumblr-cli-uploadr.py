@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-__VERSION__ = '2019.06.16'
+__VERSION__ = '2020.03.07'
 
 __ABOUT__   = '= tubmlr - command line uploader = (c) 2019 by Robert = version %s =' % __VERSION__
 
@@ -41,7 +41,7 @@ import tumblrsimple
 
 
 def die(msg, exitcode=1):
-    """ print msg and die woth exitcode """
+    """ print msg and die with exitcode """
     print msg
     sys.exit(exitcode)
 
