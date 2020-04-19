@@ -10,7 +10,7 @@ pytumblr:       https://github.com/tumblr/pytumblr
 
 """
 
-__VERSION__ = '2020.03.07'
+__VERSION__ = '2020.04.19'
 
 import os, json, sys
 import re, datetime, time
@@ -444,7 +444,7 @@ class TumblrSimple:
             'url':  url
         }
 
-    def upload_video_get_id_url(self, video, caption, tags, progress=None, **kwargs):
+    def upload_video_get_id_url_stable_id(self, video, caption, tags, progress=None, **kwargs):
         """ upload video with caption and tags and return id/url, optional progress string str s[0] wait, s[1] timeout """
         # upload with added uid tag
         if not self.upload_video_rq(video, caption, tags, **kwargs):
@@ -468,6 +468,36 @@ class TumblrSimple:
             'id':  id,
             'url': self.get_xpath_from_response(xpath=self.options["video_url"])
         }
+        #
+        return id_url
+
+    def upload_video_get_id_url(self, video, caption, tags, progress=None, **kwargs):
+        """ upload video with caption and tags and return id/url, optional progress string str s[0] wait, s[1] timeout """
+        # unique id (unix timestamp) to find uploaded post after server processing
+        uid = datetime.datetime.now().strftime('%s')
+        # upload with added uid tag
+        if not self.upload_video_rq(video, caption, "%s,%s" % (uid, tags), **kwargs):
+            return None
+        # this is just temporary/processing id returned from upload
+        tid = self.get_id_from_response()
+        # wait for server processing
+        for i in range(self.options.get("loop_wait", 100)):
+            self.sleep(self.options.get("video_wait", 10))
+            # success if temporary tid not found any more - processing done
+            if not self.find_id_rq(tid): break
+        # timeout waiting for server processing
+        else:
+            return None
+        # find post by uid
+        if not self.find_tag_rq(uid):
+            return None
+        # result id/url
+        id_url = {
+            'id': self.get_ids_from_response()[0],
+            'url': self.get_xpath_from_response(xpath=self.options["video_url"])
+        }
+        # remove uid tag
+        self.id_del_tags(id=id_url['id'], deltags="%s" % uid)
         #
         return id_url
 
