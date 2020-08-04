@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 """
 TumblrSimple class for simplified tumblr operations over tumblr API
@@ -8,9 +8,11 @@ web console:    https://api.tumblr.com/console/calls/blog/posts
 tumblr apps:    https://www.tumblr.com/oauth/apps
 pytumblr:       https://github.com/tumblr/pytumblr
 
+install:        pip3 install PyTumblr
+
 """
 
-__VERSION__ = '2020.04.19'
+__VERSION__ = '2020.08.04'
 
 import os, json, sys
 import re, datetime, time
@@ -22,7 +24,7 @@ import pytumblr
 class Tags:
     """ tags class for working with tags as csv string and tags as list """
 
-    def __init__(self, data=None, sep=',', casefnc=unicode.lower):
+    def __init__(self, data=None, sep=',', casefnc=str.lower):
         """ init from optional data (string or list or csv), optional separator and unicode case-function """
         # store csv separator
         self.sep = sep
@@ -33,8 +35,8 @@ class Tags:
 
     def _rectify_item(self, item):
         """ preprocess single item - unicode, stip, lower/upper/title """
-        # force unicode
-        item = unicode(item, 'utf8') if type(item) == str else item
+        # force unicode - python2 only
+        #item = unicode(item, 'utf8') if type(item) == str else item
         # stip whitespaces, strip seprators
         item = item.strip().strip(self.sep).strip()
         # optional custom case conversion
@@ -46,8 +48,8 @@ class Tags:
         par = par.split(self.sep) if self.sep in par else par
         # convert to list even if single item
         par = par if type(par) == list else [par]
-        # rectify and return
-        return map(self._rectify_item, par)
+        # rectify and return list
+        return list(map(self._rectify_item, par))
 
     def as_string(self):
         return self.sep.join(self.lst)
@@ -87,7 +89,7 @@ class Tags:
 
     def limit_len(self, minlen=5):
         """ elmininate tags shorter than minlen """
-        self.lst = filter(lambda tag: len(tag) >= minlen, self.lst)
+        self.lst = list(filter(lambda tag: len(tag) >= minlen, self.lst))
         return self
 
     def limit_num(self, maxnum=20):
@@ -150,9 +152,9 @@ class TumblrSimple:
         """ debug output with pretty formatted json """
         if level > cls.verbosity: return
         stamp = datetime.datetime.now().strftime(stampfrm) if stampfrm else ''
-        print "%s" % stamp, '>>>', action, ">>>"
-        print json.dumps(jsn, indent=4, sort_keys=True)
-        print
+        print("%s" % stamp, '>>>', action, ">>>")
+        print(json.dumps(jsn, indent=4, sort_keys=True))
+        print()
 
     # helpers - consider them to be static or class methods
 
