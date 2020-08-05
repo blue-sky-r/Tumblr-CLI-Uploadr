@@ -1,6 +1,6 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
-__VERSION__ = '2020.03.07'
+__VERSION__ = '2020.08.04'
 
 __ABOUT__   = '= tubmlr - command line uploader = (c) 2019 by Robert = version %s =' % __VERSION__
 
@@ -42,7 +42,7 @@ import tumblrsimple
 
 def die(msg, exitcode=1):
     """ print msg and die with exitcode """
-    print msg
+    print(msg)
     sys.exit(exitcode)
 
 def usage(required=4):
@@ -79,7 +79,7 @@ if __name__ == '__main__':
 
     # suppress warnings: InsecurePlatformWarning, SNIMissingWarning for older libraries
     #
-    tumblr.no_warnings()
+    #tumblr.no_warnings()
 
     # validate authorization
     #
@@ -92,7 +92,7 @@ if __name__ == '__main__':
         ids = tumblr.list_posts_ids()
         if not ids:
             die(tumblr.last_error())
-        print "IDs:", ' '.join(["%s" % id for id in ids])
+        print("IDs:", ' '.join(["%s" % id for id in ids]))
 
     # LIST-TAG id
     #
@@ -104,14 +104,14 @@ if __name__ == '__main__':
             if not id_tags:
                 die(tumblr.last_error())
             for id,tags in id_tags.items():
-                print "ID:", id,
-                print "TAGs:", ' '.join(["%s" % tag for tag in tags])
+                print("ID:", id, end=' ')
+                print("TAGs:", ' '.join(["%s" % tag for tag in tags]))
         else:
             tags = tumblr.find_id_get_tags(id=id)
             if not tags:
                 die(tumblr.last_error())
-            print "ID:", id,
-            print "TAGs:", ' '.join(["%s" % tag for tag in tags])
+            print("ID:", id, end=' ')
+            print("TAGs:", ' '.join(["%s" % tag for tag in tags]))
 
     # DELETE id
     #
@@ -121,7 +121,7 @@ if __name__ == '__main__':
         id = None if par in ['*', 'all', '-'] else par
         if not tumblr.delete_post_rq(id=id):
             die(tumblr.last_error())
-        print "DELETED ID:", id
+        print("DELETED ID:", id)
 
     # DELETE tagged
     #
@@ -134,7 +134,7 @@ if __name__ == '__main__':
         for id in ids:
             if not tumblr.delete_post_rq(id=id):
                 die(tumblr.last_error())
-        print "DELETED IDs:", ' '.join(["%s" % id for id in ids])
+        print("DELETED IDs:", ' '.join(["%s" % id for id in ids]))
 
     # FIND-TAG tag
     #
@@ -143,10 +143,10 @@ if __name__ == '__main__':
         par = sys.argv[2]
         tag = None if par in ['*', 'all', '-'] else par
         ids = tumblr.find_tag_get_ids(tag=tag)
-        print "TAG: #%s" % tag
+        print("TAG: #%s" % tag)
         if not ids:
             die(tumblr.last_error())
-        print "IDs:", ' '.join(["%s" % id for id in ids])
+        print("IDs:", ' '.join(["%s" % id for id in ids]))
 
     # FIND-ID id
     #
@@ -167,7 +167,7 @@ if __name__ == '__main__':
         post = tumblr.id_add_tags(id=id, addtags=tags)
         if not post:
             die(tumblr.last_error())
-        print "ID:",id,"+TAGS:",tags
+        print("ID:",id,"+TAGS:",tags)
 
     # DEL-TAG tag1,tag2 id
     #
@@ -178,7 +178,7 @@ if __name__ == '__main__':
         post = tumblr.id_del_tags(id=id, deltags=tags)
         if not post:
             die(tumblr.last_error())
-        print "ID:", id, "-TAGS:", tags
+        print("ID:", id, "-TAGS:", tags)
 
     # PHOTO file caption tags
     #
@@ -191,11 +191,11 @@ if __name__ == '__main__':
         if not idurl:
             die(tumblr.last_error())
         #
-        print "PHOTO:", photo
-        print "CAPTION:", caption
-        print "TAGs:", tags
-        print "ID:",  idurl['id']
-        print "URL:", idurl['url']
+        print("PHOTO:", photo)
+        print("CAPTION:", caption)
+        print("TAGs:", tags)
+        print("ID:",  idurl['id'])
+        print("URL:", idurl['url'])
 
     # VIDEO
     #
@@ -208,12 +208,12 @@ if __name__ == '__main__':
         if not idurl:
             die(tumblr.last_error())
         #
-        print "VIDEO:", video
-        print "CAPTION:", caption
-        print "TAGs:", tags
-        print "ID:",  idurl['id']
-        print "URL:", idurl['url']
+        print("VIDEO:", video)
+        print("CAPTION:", caption)
+        print("TAGs:", tags)
+        print("ID:",  idurl['id'])
+        print("URL:", idurl['url'])
 
     # API calls stats
     #
-    print "Done - Tumblr.API calls:", tumblr.api_rq_cnt
+    print("Done - Tumblr.API calls:", tumblr.api_rq_cnt)
