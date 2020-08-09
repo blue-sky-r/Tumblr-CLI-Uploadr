@@ -20,13 +20,13 @@ for configurable options check config file: %(cfg)s
  
 example:
 %(exe)s find-id id              ... find post id and print full json
-%(exe)s find-tag tag            ... find post(s)   tagged with tag tag and print only post id(s)
+%(exe)s find-tag tag            ... find the last 20 post(s) tagged with tag tag and print only post id(s)
 %(exe)s list-tag id             ... list all tags for post id
-%(exe)s list-tag all            ... list all tags for all posts (all = * = -)
-%(exe)s list-posts              ... list all posts (print only post id(s))
+%(exe)s list-tag all            ... list all tags for all (the last 20) posts (all = * = -)
+%(exe)s list-posts              ... list all (the last 20) posts (print only post id(s))
 %(exe)s delete-id id            ... delete post id
-%(exe)s delete-id all           ... delete all posts (all = * = -)
-%(exe)s delete-tagged tag       ... delete all post tagged with tag tag
+%(exe)s delete-id all           ... delete all (the last 20) posts (all = * = -)
+%(exe)s delete-tagged tag       ... delete all (the last 20) post tagged with tag tag
 %(exe)s add-tag tag1,tag2 id    ... add tag1 and tag2 to post id
 %(exe)s del-tag tag1,tag2 id    ... delete tag1 and tag2 from post id
 %(exe)s photo file caption tags ... uploads photo file with caption and tags and print post id and url
